@@ -1,42 +1,42 @@
 #!/usr/bin/env node
 
 // Native
-const http = require('http');
-const path = require('path');
-const {existsSync} = require('fs');
+const http = require("http");
+const path = require("path");
+const { existsSync } = require("fs");
 
 // Packages
-const arg = require('arg');
+const arg = require("arg");
 
 // Utilities
-const serve = require('../lib');
-const handle = require('../lib/handler');
-const {version} = require('../package');
-const logError = require('../lib/error');
-const parseEndpoint = require('../lib/parse-endpoint.js');
+const serve = require("../src");
+const handle = require("../src/handler");
+const { version } = require("../package");
+const logError = require("../src/error");
+const parseEndpoint = require("../src/parse-endpoint.js");
 
 // Check if the user defined any options
 const args = arg({
-	'--listen': [parseEndpoint],
-	'-l': '--listen',
+	"--listen": [parseEndpoint],
+	"-l": "--listen",
 
-	'--help': Boolean,
+	"--help": Boolean,
 
-	'--version': Boolean,
-	'-v': '--version',
+	"--version": Boolean,
+	"-v": "--version",
 
 	// Deprecated options
-	'--port': Number,
-	'-p': '--port',
-	'--host': String,
-	'-h': '--host',
-	'--unix-socket': String,
-	'-s': '--unix-socket'
+	"--port": Number,
+	"-p": "--port",
+	"--host": String,
+	"-h": "--host",
+	"--unix-socket": String,
+	"-s": "--unix-socket",
 });
 
 // When `-h` or `--help` are used, print out
 // the usage information
-if (args['--help']) {
+if (args["--help"]) {
 	console.error(`
   micro - Asynchronous HTTP microservices
 
@@ -83,79 +83,85 @@ if (args['--help']) {
 
 // Print out the package's version when
 // `--version` or `-v` are used
-if (args['--version']) {
+if (args["--version"]) {
 	console.log(version);
 	process.exit();
 }
 
-if ((args['--port'] || args['--host']) && args['--unix-socket']) {
+if ((args["--port"] || args["--host"]) && args["--unix-socket"]) {
 	logError(
 		`Both host/port and socket provided. You can only use one.`,
-		'invalid-port-socket'
+		"invalid-port-socket",
 	);
 	process.exit(1);
 }
 
 let deprecatedEndpoint = null;
 
-args['--listen'] = args['--listen'] || [];
+args["--listen"] = args["--listen"] || [];
 
-if (args['--port']) {
-	const {isNaN} = Number;
-	const port = Number(args['--port']);
-	if (isNaN(port) || (!isNaN(port) && (port < 1 || port >= Math.pow(2, 16)))) {
+if (args["--port"]) {
+	const { isNaN } = Number;
+	const port = Number(args["--port"]);
+	if (
+		isNaN(port) ||
+		(!isNaN(port) && (port < 1 || port >= Math.pow(2, 16)))
+	) {
 		logError(
-			`Port option must be a number. Supplied: ${args['--port']}`,
-			'invalid-server-port'
+			`Port option must be a number. Supplied: ${args["--port"]}`,
+			"invalid-server-port",
 		);
 		process.exit(1);
 	}
 
-	deprecatedEndpoint = [args['--port']];
+	deprecatedEndpoint = [args["--port"]];
 }
 
-if (args['--host']) {
+if (args["--host"]) {
 	deprecatedEndpoint = deprecatedEndpoint || [];
-	deprecatedEndpoint.push(args['--host']);
+	deprecatedEndpoint.push(args["--host"]);
 }
 
 if (deprecatedEndpoint) {
-	args['--listen'].push(deprecatedEndpoint);
+	args["--listen"].push(deprecatedEndpoint);
 }
 
-if (args['--unix-socket']) {
-	if (typeof args['--unix-socket'] === 'boolean') {
+if (args["--unix-socket"]) {
+	if (typeof args["--unix-socket"] === "boolean") {
 		logError(
 			`Socket must be a string. A boolean was provided.`,
-			'invalid-socket'
+			"invalid-socket",
 		);
 	}
-	args['--listen'].push(args['--unix-socket']);
+	args["--listen"].push(args["--unix-socket"]);
 }
 
-if (args['--port'] || args['--host'] || args['--unix-socket']) {
+if (args["--port"] || args["--host"] || args["--unix-socket"]) {
 	logError(
-		'--port, --host, and --unix-socket are deprecated - see --help for information on the --listen flag',
-		'deprecated-endpoint-flags'
+		"--port, --host, and --unix-socket are deprecated - see --help for information on the --listen flag",
+		"deprecated-endpoint-flags",
 	);
 }
 
-if (args['--listen'].length === 0) {
+if (args["--listen"].length === 0) {
 	// default endpoint
-	args['--listen'].push([3000]);
+	args["--listen"].push([3000]);
 }
 
 let file = args._[0];
 
 if (!file) {
 	try {
-		const packageJson = require(path.resolve(process.cwd(), 'package.json'));
-		file = packageJson.main || 'index.js';
+		const packageJson = require(path.resolve(
+			process.cwd(),
+			"package.json",
+		));
+		file = packageJson.main || "index.js";
 	} catch (err) {
-		if (err.code !== 'MODULE_NOT_FOUND') {
+		if (err.code !== "MODULE_NOT_FOUND") {
 			logError(
 				`Could not read \`package.json\`: ${err.message}`,
-				'invalid-package-json'
+				"invalid-package-json",
 			);
 			process.exit(1);
 		}
@@ -163,18 +169,18 @@ if (!file) {
 }
 
 if (!file) {
-	logError('Please supply a file!', 'path-missing');
+	logError("Please supply a file!", "path-missing");
 	process.exit(1);
 }
 
-if (file[0] !== '/') {
+if (file[0] !== "/") {
 	file = path.resolve(process.cwd(), file);
 }
 
 if (!existsSync(file)) {
 	logError(
 		`The file or directory "${path.basename(file)}" doesn't exist!`,
-		'path-not-existent'
+		"path-not-existent",
 	);
 	process.exit(1);
 }
@@ -189,16 +195,16 @@ function registerShutdown(fn) {
 		}
 	};
 
-	process.on('SIGINT', wrapper);
-	process.on('SIGTERM', wrapper);
-	process.on('exit', wrapper);
+	process.on("SIGINT", wrapper);
+	process.on("SIGTERM", wrapper);
+	process.on("exit", wrapper);
 }
 
 function startEndpoint(module, endpoint) {
 	const server = new http.Server(serve(module));
 
-	server.on('error', err => {
-		console.error('micro:', err.stack);
+	server.on("error", err => {
+		console.error("micro:", err.stack);
 		process.exit(1);
 	});
 
@@ -209,12 +215,12 @@ function startEndpoint(module, endpoint) {
 
 		// `micro` is designed to run only in production, so
 		// this message is perfectly for prod
-		if (typeof details === 'string') {
+		if (typeof details === "string") {
 			console.log(`micro: Accepting connections on ${details}`);
-		} else if (typeof details === 'object' && details.port) {
+		} else if (typeof details === "object" && details.port) {
 			console.log(`micro: Accepting connections on port ${details.port}`);
 		} else {
-			console.log('micro: Accepting connections');
+			console.log("micro: Accepting connections");
 		}
 	});
 }
@@ -222,11 +228,13 @@ function startEndpoint(module, endpoint) {
 async function start() {
 	const loadedModule = await handle(file);
 
-	for (const endpoint of args['--listen']) {
+	for (const endpoint of args["--listen"]) {
 		startEndpoint(loadedModule, endpoint);
 	}
 
-	registerShutdown(() => console.log('micro: Gracefully shutting down. Please wait...'));
+	registerShutdown(() =>
+		console.log("micro: Gracefully shutting down. Please wait..."),
+	);
 }
 
 start();
