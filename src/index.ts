@@ -1,26 +1,30 @@
 // Native
-const {Stream} = require('stream');
+import { Stream, Readable } from "stream";
 
 // Packages
-const contentType = require('content-type');
-const getRawBody = require('raw-body');
+import contentType from "content-type";
+import getRawBody from "raw-body";
 
 // based on is-stream https://github.com/sindresorhus/is-stream/blob/c918e3795ea2451b5265f331a00fb6a8aaa27816/license
-function isStream(stream) {
-	return stream !== null &&
-	typeof stream === 'object' &&
-	typeof stream.pipe === 'function';
+function isStream(stream: any): stream is Stream {
+	return (
+		stream !== null &&
+		typeof stream === "object" &&
+		typeof stream.pipe === "function"
+	);
 }
 
-function readable(stream) {
-	return isStream(stream) &&
-	stream.readable !== false &&
-	typeof stream._read === 'function' &&
-	typeof stream._readableState === 'object';
+function readable(stream: any): stream is Readable {
+	return (
+		isStream(stream) &&
+		stream.readable !== false &&
+		typeof stream._read === "function" &&
+		typeof stream._readableState === "object"
+	);
 }
 
-const {NODE_ENV} = process.env;
-const DEV = NODE_ENV === 'development';
+const { NODE_ENV } = process.env;
+const DEV = NODE_ENV === "development";
 
 const serve = fn => (req, res) => exports.run(req, res, fn);
 
@@ -46,18 +50,18 @@ const send = (res, code, obj = null) => {
 	}
 
 	if (Buffer.isBuffer(obj)) {
-		if (!res.getHeader('Content-Type')) {
-			res.setHeader('Content-Type', 'application/octet-stream');
+		if (!res.getHeader("Content-Type")) {
+			res.setHeader("Content-Type", "application/octet-stream");
 		}
 
-		res.setHeader('Content-Length', obj.length);
+		res.setHeader("Content-Length", obj.length);
 		res.end(obj);
 		return;
 	}
 
 	if (obj instanceof Stream || readable(obj)) {
-		if (!res.getHeader('Content-Type')) {
-			res.setHeader('Content-Type', 'application/octet-stream');
+		if (!res.getHeader("Content-Type")) {
+			res.setHeader("Content-Type", "application/octet-stream");
 		}
 
 		obj.pipe(res);
@@ -66,7 +70,7 @@ const send = (res, code, obj = null) => {
 
 	let str = obj;
 
-	if (typeof obj === 'object' || typeof obj === 'number') {
+	if (typeof obj === "object" || typeof obj === "number") {
 		// We stringify before setting the header
 		// in case `JSON.stringify` throws and a
 		// 500 has to be sent instead
@@ -80,23 +84,23 @@ const send = (res, code, obj = null) => {
 			str = JSON.stringify(obj);
 		}
 
-		if (!res.getHeader('Content-Type')) {
-			res.setHeader('Content-Type', 'application/json; charset=utf-8');
+		if (!res.getHeader("Content-Type")) {
+			res.setHeader("Content-Type", "application/json; charset=utf-8");
 		}
 	}
 
-	res.setHeader('Content-Length', Buffer.byteLength(str));
+	res.setHeader("Content-Length", Buffer.byteLength(str));
 	res.end(str);
 };
 
 const sendError = (req, res, errorObj) => {
 	const statusCode = errorObj.statusCode || errorObj.status;
-	const message = statusCode ? errorObj.message : 'Internal Server Error';
+	const message = statusCode ? errorObj.message : "Internal Server Error";
 	send(res, statusCode || 500, DEV ? errorObj.stack : message);
 	if (errorObj instanceof Error) {
 		console.error(errorObj.stack);
 	} else {
-		console.warn('thrown error must be an instance Error');
+		console.warn("thrown error must be an instance Error");
 	}
 };
 
@@ -129,14 +133,14 @@ const parseJSON = str => {
 	try {
 		return JSON.parse(str);
 	} catch (err) {
-		throw createError(400, 'Invalid JSON', err);
+		throw createError(400, "Invalid JSON", err);
 	}
 };
 
-exports.buffer = (req, {limit = '1mb', encoding} = {}) =>
+exports.buffer = (req, { limit = "1mb", encoding } = {}) =>
 	Promise.resolve().then(() => {
-		const type = req.headers['content-type'] || 'text/plain';
-		const length = req.headers['content-length'];
+		const type = req.headers["content-type"] || "text/plain";
+		const length = req.headers["content-length"];
 
 		// eslint-disable-next-line no-undefined
 		if (encoding === undefined) {
@@ -149,22 +153,24 @@ exports.buffer = (req, {limit = '1mb', encoding} = {}) =>
 			return body;
 		}
 
-		return getRawBody(req, {limit, length, encoding})
+		return getRawBody(req, { limit, length, encoding })
 			.then(buf => {
 				rawBodyMap.set(req, buf);
 				return buf;
 			})
 			.catch(err => {
-				if (err.type === 'entity.too.large') {
+				if (err.type === "entity.too.large") {
 					throw createError(413, `Body exceeded ${limit} limit`, err);
 				} else {
-					throw createError(400, 'Invalid body', err);
+					throw createError(400, "Invalid body", err);
 				}
 			});
 	});
 
-exports.text = (req, {limit, encoding} = {}) =>
-	exports.buffer(req, {limit, encoding}).then(body => body.toString(encoding));
+exports.text = (req, { limit, encoding } = {}) =>
+	exports
+		.buffer(req, { limit, encoding })
+		.then(body => body.toString(encoding));
 
 exports.json = (req, opts) =>
 	exports.text(req, opts).then(body => parseJSON(body));
